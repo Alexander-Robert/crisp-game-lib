@@ -47,13 +47,13 @@ const G = {
 
   PLAYER_SPEED: 1,
 
-  FALLING_SPEED_MIN: 0.5,
-  FALLING_SPEED_MAX: 1.0,
+  FALLING_SPEED_MIN: 0.7,
+  FALLING_SPEED_MAX: 0.9,
 };
 const MENU_WIDTH = 30;
 const MENU_LINE_HEIGHT = 13; //the top of where the menu images will start spawning
 const RIGHT_SCREEN_EDGE = G.WIDTH - MENU_WIDTH; //the playable game width 
-
+const MAX_BURGERS = 8; //the maximum number of burgers allowed on the burger menu.
 //Important settings that define key aspects of the game, e.g. viewport, music, etc.
 options = {
   viewSize: { x: G.WIDTH, y: G.HEIGHT },
@@ -92,12 +92,8 @@ let ingredients;
 
 function update() {
   if (!ticks) {
-    //temp code defining burgers to interpret in the burgerList
-    burgerList = [
-      ["yellow", "green", "red", "yellow"],
-      ["cyan", "purple", "blue", "red", "cyan"],
-      ["red", "green", "blue", "red"]
-    ];
+    //create two burgers on the menu at the start of the game
+    times(2, () => {addBurgerToOrderMenu();});
     //temp code for falling ingredients
     ingredients = times(20, () => {
       // Random number generator function
@@ -139,6 +135,7 @@ function update() {
   //check tap input
   if (input.isJustPressed) {
     changeDirection();
+    //addBurgerToOrderMenu();
   }
 
   //TODO: check holding input (with a console log)
@@ -180,6 +177,11 @@ function update() {
   
   //displays burgers in the menu UI and shifts burgers down when burgers are adding to the list
   displayBurgerUI();
+
+  if(burgerList.length > MAX_BURGERS) {
+    //TODO: fix the end message
+    end(`Too many hungry customers!!!`);
+  }
 }
 
 function changeDirection() {
@@ -188,12 +190,6 @@ function changeDirection() {
 }
 
 function sellBurger() {
-  // console.log(burgerList);
-  // if(burgerList.length > 0) {
-  //   burgerList.splice(0,1); //remove the first burger in the list
-  // } 
-  // console.log(burgerList);
-  
   //find the burger in the order menu
   let equal = false;
   let index = -1;
@@ -211,7 +207,6 @@ function sellBurger() {
       break;
     }
   }
-  //console.log(index);
   //if we found the burger, sell it!!!!
   if (index > -1) {
     burgerList.splice(index, 1);
@@ -228,6 +223,38 @@ function clearTray() {
   //TODO: figure out how you want to clear the tray.
   //includes removing the rectangles on the tray and the burger color array
 }
+
+function addBurgerToOrderMenu() {
+  let colorsList = [
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "purple",
+    "cyan",
+  ]
+  let newBurger = [];
+  let numOfIngredients = rndi(3,6);
+  //add a random number of indredients to the burger
+  for (let i = 0; i < numOfIngredients; i++) {
+    //if this is the last ingredient (AKA the bun) make it the same color as the other bun
+    if (i == numOfIngredients - 1) {
+      newBurger.push(newBurger[0]);
+      break;
+    }
+    //and give each ingredient a random color
+    let randomColor = colorsList[rndi(0,colorsList.length-1)];
+    let index = colorsList.indexOf(randomColor);
+    if(index > -1) {
+      colorsList.splice(index,1);
+    }
+    else console.warn("addBurgerToOrderMenu(): could not find color in list");
+    newBurger.push(randomColor);
+  }
+  //add the burger to the end of the list
+  burgerList.push(newBurger);
+}
+
 function displayBurgerUI() {
   //defining some constants that assist in aligning the burgers correctly
   const ingredientUI_X = RIGHT_SCREEN_EDGE + 10;
@@ -253,12 +280,4 @@ function displayBurgerUI() {
         ingredientUI_LENGTH + ((burgerList[i].length - j)*2), 1);
     }
   }
-  // color("yellow");
-  // rect(ingredientUI_X, ingredientUI_Y, ingredientUI_LENGTH, 1);
-  // color("green");
-  // rect(ingredientUI_X - 1, ingredientUI_Y + 1, ingredientUI_LENGTH + 2, 1);
-  // color("red");
-  // rect(ingredientUI_X - 2, ingredientUI_Y + 2, ingredientUI_LENGTH + 4, 1);
-  // color("yellow");
-  // rect(ingredientUI_X, ingredientUI_Y + 3, ingredientUI_LENGTH, 1);
 }
