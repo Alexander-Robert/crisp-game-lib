@@ -50,10 +50,13 @@ const G = {
   FALLING_SPEED_MIN: 0.7,
   FALLING_SPEED_MAX: 0.9,
 };
+
 const MENU_WIDTH = 30;
 const MENU_LINE_HEIGHT = 13; //the top of where the menu images will start spawning
 const RIGHT_SCREEN_EDGE = G.WIDTH - MENU_WIDTH; //the playable game width 
 const MAX_BURGERS = 8; //the maximum number of burgers allowed on the burger menu.
+const INGREDIENT_WIDTH = 6;
+
 //Important settings that define key aspects of the game, e.g. viewport, music, etc.
 options = {
   viewSize: { x: G.WIDTH, y: G.HEIGHT },
@@ -73,7 +76,7 @@ options = {
 let player;
 //the plate the player uses to catch falling ingredients
 //since it's anchored to the player, it only needs to use the player's properties
-let tray;
+var tray;
 
 //a list of arrays where each array is the color of the ingredient
 //ex. ["yellow", "green", "red", "yellow"] constitues the ingredients for what will look like a burger
@@ -82,32 +85,27 @@ let burgerList = [];
 //the current burger that is being built on our tray
 let burger = [];
 
-/**
-* @typedef { object } Ingredients - A falling object comprised of various colors
-* @property { Vector } pos - The current position of the object
-* @property { String } speed - The downwards floating speed of this object
-* @property { number } width - the width of the ingredient //TODO: see if we remove this if we create custom art
-*/
-let ingredients;
+//the list of colors that the ingredients can be
+let colorsList = [
+  "red",
+  "green",
+  "yellow",
+  "blue",
+  "purple",
+  "cyan"
+];
+
+//array of all the falling ingredients
+let ingredients = [];
 
 function update() {
   if (!ticks) {
     //create two burgers on the menu at the start of the game
     times(2, () => {addBurgerToOrderMenu();});
     //temp code for falling ingredients
-    ingredients = times(20, () => {
-      // Random number generator function
-      // rnd( min, max )
-      const posX = rnd(0, RIGHT_SCREEN_EDGE);
-      // An object of type Star with appropriate properties
-      return {
-        // Creates a Vector
-        pos: vec(posX, 0),
-        // More RNG
-        speed: rnd(G.STAR_SPEED_MIN, G.STAR_SPEED_MAX)
-      };
-    });
+    times(100, () => {createIngredient();});
 
+    //define the player
     player = {
       pos: vec(RIGHT_SCREEN_EDGE * 0.5, G.HEIGHT - 3),
       //uses the constant base speed, but we want to modify it's sign 
@@ -116,18 +114,7 @@ function update() {
     };
   }//END OF INIT SECTION-----------------------------------------------------
 
-  // Update for ingredients
-  ingredients.forEach((ingredient) => {
-    // Move the star downwards
-    ingredient.pos.y += ingredient.speed;
-    // Bring the star back to top once it's past the bottom of the screen
-    ingredient.pos.wrap(0, G.WIDTH, 0, G.HEIGHT);
-
-    // Choose a color to draw
-    color("light_black");
-    // Draw the star as a square of size 1
-    box(ingredient.pos, 1);
-  });
+  updateIngredients();
 
   //have the player constantly move horizontally
   player.pos.x += player.speed;
@@ -162,7 +149,6 @@ function update() {
   //draw tray given player's properties
   color("red");
   tray = char("e", player.pos.x + (player.side == "left" ? -3 : 3), player.pos.y - 4);
-
   //Draw the menu UI
   //black menu background
   color("black");
@@ -187,6 +173,56 @@ function update() {
 function changeDirection() {
   player.side = (player.side == "left") ? "right" : "left";
   player.speed *= -1;
+}
+
+function createIngredient() {
+    // Random number generator function
+    // rnd( min, max )
+    const posX = rnd(0, RIGHT_SCREEN_EDGE -INGREDIENT_WIDTH);
+    let randomIndex = rndi(0,colorsList.length-1);
+    let randomColor = colorsList[randomIndex];
+    // create an ingredient object with appropriate properties
+    let ingredient = {
+      // Creates a Vector
+      pos: vec(posX, 0),
+      speed: rnd(G.STAR_SPEED_MIN, G.STAR_SPEED_MAX),
+      color: randomColor }
+    ingredients.push(ingredient);
+}
+
+function updateIngredients() {
+    // Update for ingredients
+    for(let i = 0; i < ingredients.length; i++) {
+      // Move the ingredient downwards
+      ingredients[i].pos.y += ingredients[i].speed;
+      // Bring the ingredient back to top once it's past the bottom of the screen
+      ingredients[i].pos.wrap(0, G.WIDTH, 0, G.HEIGHT);
+  
+      // Choose a color to draw
+      color(ingredients[i].color);
+      //color("light_black");
+      // Draw the ingredient as a rectangle 
+      rect(ingredients[i].pos, INGREDIENT_WIDTH, 2);
+    }
+
+    remove(ingredients, (ingredient) => {
+      console.log("ingredient:");
+      console.log(ingredient);
+      console.log("tray:");
+      console.log(tray);
+      //let trayCollisionArray = tray.isColliding.rect;
+      //console.log(trayCollisionArray);
+      //console.log(tray.isColliding.rect);
+      //console.log(tray.isColliding.ingredient);
+//      if(trayCollisionArray.length > 0) {}
+        //console.log("collided with tray!");
+        //console.log(tray.isColliding.rect);
+        //play("powerUp");
+
+      // return boolean determines if the current ingredient being evaluated is to be deleted or not.
+      return (false);
+    });
+
 }
 
 function sellBurger() {
@@ -225,14 +261,14 @@ function clearTray() {
 }
 
 function addBurgerToOrderMenu() {
-  let colorsList = [
+  let currentColorsList = [
     "red",
     "green",
     "yellow",
     "blue",
     "purple",
-    "cyan",
-  ]
+    "cyan"
+  ];
   let newBurger = [];
   let numOfIngredients = rndi(3,6);
   //add a random number of indredients to the burger
@@ -243,10 +279,10 @@ function addBurgerToOrderMenu() {
       break;
     }
     //and give each ingredient a random color
-    let randomColor = colorsList[rndi(0,colorsList.length-1)];
-    let index = colorsList.indexOf(randomColor);
+    let randomColor = currentColorsList[rndi(0,currentColorsList.length-1)];
+    let index = currentColorsList.indexOf(randomColor);
     if(index > -1) {
-      colorsList.splice(index,1);
+      currentColorsList.splice(index,1);
     }
     else console.warn("addBurgerToOrderMenu(): could not find color in list");
     newBurger.push(randomColor);
