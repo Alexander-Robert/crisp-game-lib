@@ -79,6 +79,9 @@ let tray;
 //ex. ["yellow", "green", "red", "yellow"] constitues the ingredients for what will look like a burger
 let burgerList = [];
 
+//the current burger that is being built on our tray
+let burger = [];
+
 /**
 * @typedef { object } Ingredients - A falling object comprised of various colors
 * @property { Vector } pos - The current position of the object
@@ -179,6 +182,52 @@ function update() {
   displayBurgerUI();
 }
 
+function changeDirection() {
+  player.side = (player.side == "left") ? "right" : "left";
+  player.speed *= -1;
+}
+
+function sellBurger() {
+  // console.log(burgerList);
+  // if(burgerList.length > 0) {
+  //   burgerList.splice(0,1); //remove the first burger in the list
+  // } 
+  // console.log(burgerList);
+  
+  //find the burger in the order menu
+  let equal = false;
+  let index = -1;
+  if(burger.length == 0) return;
+  //check if burger is in the burger list
+  for(let i = 0; i < burgerList.length; i++) {
+    if (burgerList[i].length == burger.length) {
+      for(let j = 0; j < burgerList[i].length; j++) {
+        if(burger[j] !== burgerList[i][j]) break;
+        if(j == burgerList[i].length - 1) equal = true;
+      }
+    }
+    if(equal) {
+      index = i;
+      break;
+    }
+  }
+  //console.log(index);
+  //if we found the burger, sell it!!!!
+  if (index > -1) {
+    burgerList.splice(index, 1);
+  }
+  //else, you sold garbage! (remove some score points)
+  else {
+    //TODO: remove points for bad burger
+  }
+
+  clearTray();
+}
+
+function clearTray() {
+  //TODO: figure out how you want to clear the tray.
+  //includes removing the rectangles on the tray and the burger color array
+}
 function displayBurgerUI() {
   //defining some constants that assist in aligning the burgers correctly
   const ingredientUI_X = RIGHT_SCREEN_EDGE + 10;
@@ -212,9 +261,4 @@ function displayBurgerUI() {
   // rect(ingredientUI_X - 2, ingredientUI_Y + 2, ingredientUI_LENGTH + 4, 1);
   // color("yellow");
   // rect(ingredientUI_X, ingredientUI_Y + 3, ingredientUI_LENGTH, 1);
-}
-
-function changeDirection() {
-  player.side = (player.side == "left") ? "right" : "left";
-  player.speed *= -1;
 }
