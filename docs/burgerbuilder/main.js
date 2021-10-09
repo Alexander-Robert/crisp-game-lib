@@ -8,41 +8,36 @@ description = `
  throw away food
 `;
 
-characters = [
-  `
+characters = [`
 llllll
 ll l l
 ll l l
 llllll
  l  l
  l  l
- `,
-  `
+`, `
 llllll
 ll l l
 ll l l
 llllll
 ll  ll
- `,  `
+`, `
 llllll
 l l ll
 l l ll
 llllll
  l  l
  l  l
-  `,
-   `
+`, `
 llllll
 l l ll
 l l ll
 llllll
 ll  ll
-  `,`
-
-
+`, `
 l    l
 llllll
-  `
+`
 ];
 
 //Game constant for fine tuning important numbers and clarifying their usage.
@@ -78,7 +73,11 @@ options = {
 let player;
 //the plate the player uses to catch falling ingredients
 //since it's anchored to the player, it only needs to use the player's properties
-let tray; 
+let tray;
+
+//a list of arrays where each array is the color of the ingredient
+//ex. ["yellow", "green", "red", "yellow"] constitues the ingredients for what will look like a burger
+let burgerList = [];
 
 /**
 * @typedef { object } Ingredients - A falling object comprised of various colors
@@ -90,6 +89,13 @@ let ingredients;
 
 function update() {
   if (!ticks) {
+    //temp code defining burgers to interpret in the burgerList
+    burgerList = [
+      ["yellow", "green", "red", "yellow"],
+      ["cyan", "purple", "blue", "red", "cyan"],
+      ["red", "green", "blue", "red"]
+    ];
+    //temp code for falling ingredients
     ingredients = times(20, () => {
       // Random number generator function
       // rnd( min, max )
@@ -110,7 +116,7 @@ function update() {
       side: "right",
     };
   }//END OF INIT SECTION-----------------------------------------------------
-  
+
   // Update for ingredients
   ingredients.forEach((ingredient) => {
     // Move the star downwards
@@ -123,10 +129,10 @@ function update() {
     // Draw the star as a square of size 1
     box(ingredient.pos, 1);
   });
-  
+
   //have the player constantly move horizontally
   player.pos.x += player.speed;
-  
+
   //check tap input
   if (input.isJustPressed) {
     changeDirection();
@@ -138,8 +144,7 @@ function update() {
   //TODO: spawn different color rectanles (AKA ingredients)
 
   //check if player touches edge of screen
-  if (player.pos.x >= RIGHT_SCREEN_EDGE || player.pos.x <= 0) 
-  {
+  if (player.pos.x >= RIGHT_SCREEN_EDGE || player.pos.x <= 0) {
     //TODO: Sell the burger 
     changeDirection();
   }
@@ -153,7 +158,7 @@ function update() {
     char(addWithCharCode("a", floor(ticks / 15) % 2), player.pos);
   else if (player.side == "left")
     char(addWithCharCode("c", floor(ticks / 15) % 2), player.pos);
-  
+
   //draw tray given player's properties
   color("red");
   tray = char("e", player.pos.x + (player.side == "left" ? -3 : 3), player.pos.y - 4);
@@ -165,14 +170,51 @@ function update() {
   //white line below text
   color("white");
   rect(RIGHT_SCREEN_EDGE + 1, MENU_LINE_HEIGHT, MENU_WIDTH - 2, 1);
+  //order menu text for UI
   text(`
   order 
-  menu`, RIGHT_SCREEN_EDGE - 9, -3, {color: "white"});
+  menu`, RIGHT_SCREEN_EDGE - 9, -3, { color: "white" });
+  
+  //displays burgers in the menu UI and shifts burgers down when burgers are adding to the list
+  displayBurgerUI();
+}
 
+function displayBurgerUI() {
+  //defining some constants that assist in aligning the burgers correctly
+  const ingredientUI_X = RIGHT_SCREEN_EDGE + 10;
+  const ingredientUI_Y = MENU_LINE_HEIGHT + 4;
+  const ingredientUI_LENGTH = 10;
+
+  let burgerUI_OFFSET_HEIGHT = 0;
+  for(let i = 0; i < burgerList.length; i++) {
+    if (i != 0)
+      burgerUI_OFFSET_HEIGHT += 4 + burgerList[i - 1].length;
+    //looping through each burger
+    for(let j = 0; j < burgerList[i].length; j++) {
+      //looping through each ingredient
+      color(burgerList[i][j]);
+      if(j < burgerList[i].length / 2)
+      rect(ingredientUI_X - j, 
+        ingredientUI_Y + j + burgerUI_OFFSET_HEIGHT, 
+        ingredientUI_LENGTH + (j*2), 1);
+      //once we're halfway through displaying the burger, start shortening it again
+        else
+      rect(ingredientUI_X - (burgerList[i].length - j), 
+        ingredientUI_Y + j + burgerUI_OFFSET_HEIGHT, 
+        ingredientUI_LENGTH + ((burgerList[i].length - j)*2), 1);
+    }
+  }
+  // color("yellow");
+  // rect(ingredientUI_X, ingredientUI_Y, ingredientUI_LENGTH, 1);
+  // color("green");
+  // rect(ingredientUI_X - 1, ingredientUI_Y + 1, ingredientUI_LENGTH + 2, 1);
+  // color("red");
+  // rect(ingredientUI_X - 2, ingredientUI_Y + 2, ingredientUI_LENGTH + 4, 1);
+  // color("yellow");
+  // rect(ingredientUI_X, ingredientUI_Y + 3, ingredientUI_LENGTH, 1);
 }
 
 function changeDirection() {
   player.side = (player.side == "left") ? "right" : "left";
-  console.log(player.side);
   player.speed *= -1;
 }
