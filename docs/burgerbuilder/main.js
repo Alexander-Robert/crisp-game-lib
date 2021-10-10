@@ -5,7 +5,10 @@ description = `
      click - 
  flip direction
       hold - 
- throw away food
+   stop moving
+
+edge of screen =
+   sell burger
 `;
 
 characters = [`
@@ -37,7 +40,36 @@ ll  ll
 `, `
 l    l
 llllll
+`, `
+lll
+lyrll
+lryryl
+llllll
+l   l
+l ll
+`, `
+ll
+l
+l
+l
+l
+l
+`, `
+   lll
+ llryl
+lyryrl
+llllll
+ l   l
+  ll l
+`, `
+    ll
+     l
+     l
+     l
+     l
+     l
 `
+
 ];
 
 //Game constant for fine tuning important numbers and clarifying their usage.
@@ -54,9 +86,15 @@ const G = {
 const MENU_WIDTH = 30;
 const MENU_LINE_HEIGHT = 13; //the top of where the menu images will start spawning
 const RIGHT_SCREEN_EDGE = G.WIDTH - MENU_WIDTH; //the playable game width 
+const INITIAL_BURGER_AMOUNT = 1; //how many burgers are being ordered at the start of the game
 const MAX_BURGERS = 8; //the maximum number of burgers allowed on the burger menu.
 const INGREDIENT_WIDTH = 6;
-let ingredientAmount = 0; //the amount of ingredients there should be on screen
+const MAX_LOADING_BAR_WIDTH = MENU_WIDTH - 2;
+//length of loading bar, used to determine when next burger is added to order menu
+let currentLoadingBarWidth = MAX_LOADING_BAR_WIDTH;
+//time it takes to lose 1 width on the loading bar 
+//(i.e. if width = 28, and loadingTime = 60, then it will take 28seconds for the next burger to spawn)
+let loadingTime = 60;
 
 //Important settings that define key aspects of the game, e.g. viewport, music, etc.
 options = {
@@ -95,12 +133,14 @@ let requiredColorsList = [];
 //array of all the falling ingredients
 let ingredients = [];
 
+//timer variable to track holding input
+let timer = 0;
+const waitTime = 7; //how many ticks we should wait to determine holding vs tapping
+
 function update() {
   if (!ticks) { //INITIALIZE SECTION-----------------------------------------
     //create two burgers on the menu at the start of the game
-    times(2, () => { addBurgerToOrderMenu(); });
-    //create the correct amount of ingredients for gameplay
-    //times(ingredientAmount, () => { createIngredient(); });
+    times(INITIAL_BURGER_AMOUNT, () => { addBurgerToOrderMenu(); });
 
     //define the player
     player = {
@@ -133,19 +173,45 @@ function updatePlayer() {
   //have the player constantly move horizontally
   player.pos.x += player.speed;
 
+  //create some particles while moving
+  if(player.speed != 0) {
+    color ("black");
+    let offset = (player.side == "left") ? -3 : 3;
+    particle(
+      player.pos.x - offset, // x coordinate
+      player.pos.y + 3, // y coordinate
+      1, // The number of particles
+      0.5, // The speed of the particles
+      -PI / 2, // The emitting angle
+      PI / 2  // The emitting width
+    );
+  }
+
   //check tap input
   if (input.isJustPressed) {
     changeDirection();
   }
 
-  //TODO: check holding input (with a console log)
+  //check hold input
+  if (input.isPressed && !input.isJustPressed) {
+    //wait enough time to differentiate a click vs hold
+    timer += 1;
+    if (timer >= waitTime)
+      player.speed = 0;
+  }
+
+  //reset player speed when they stop holding
+  if (input.isJustReleased) {
+    player.speed = (player.side == "left" ? -1 : 1);
+    timer = 0;
+  }
 
   //check if player touches edge of screen
   if (player.pos.x >= RIGHT_SCREEN_EDGE || player.pos.x <= 0) {
     sellBurger();
     changeDirection();
   }
-  player.pos.clamp(0, RIGHT_SCREEN_EDGE, 0, G.HEIGHT); //TODO: safety line of code? Is this needed?
+  player.pos.clamp(0, RIGHT_SCREEN_EDGE, 0, G.HEIGHT); //safety line of code? not sure if it helps at all
   color("purple");
   //draw the player based on the direction they are facing
   //addWithCharCode seems to allow us to rotate the character letter 
@@ -184,14 +250,14 @@ function updateTray() {
     //(remember the top left of the screen is coords 0,0)
     tray.hitbox.y = tray.displayPos.y - (burger.length * 2);
     tray.hitbox.height = burger.length * 2;
-    
+
     //now draw the current burger!
-    for(let i = 0; i < burger.length; i++) {
+    for (let i = 0; i < burger.length; i++) {
       color(burger[i]);
-      rect(vec(tray.displayPos.x - (tray.displayPos.width/2), 
-      tray.displayPos.y - ((i+1)*2)), 
-      tray.displayPos.width, 
-      tray.displayPos.height);
+      rect(vec(tray.displayPos.x - (tray.displayPos.width / 2),
+        tray.displayPos.y - ((i + 1) * 2)),
+        tray.displayPos.width,
+        tray.displayPos.height);
     }
   }
   //draw the tray
@@ -202,7 +268,7 @@ function updateTray() {
 function createIngredient(givenColor) {
   // Random number generator function
   // rnd( min, max )
-  const posX = rnd(0, RIGHT_SCREEN_EDGE - (INGREDIENT_WIDTH * 1.5));
+  const posX = rnd(6, RIGHT_SCREEN_EDGE - 6);
   const posY = rnd(0, -50);
   // create an ingredient object with appropriate properties
   let ingredient = {
@@ -217,12 +283,17 @@ function createIngredient(givenColor) {
 }
 
 function removeIngredient(givenColor) {
-  for(let i = 0; i < ingredients.length; i++) {
+  let removeThisIngredient = []; //a temp array to remove the ingredient we found
+  for (let i = 0; i < ingredients.length; i++) {
     if (ingredients[i].color == givenColor) {
-      ingredients.splice(i,1); //remove an ingredient of that color
+      removeThisIngredient.push(ingredients[i]);
+      ingredients.splice(i, 1); //remove an ingredient of that color
       break;
     }
   }
+  remove(removeThisIngredient, (ingredient) => {
+    return (true);
+  });
 }
 
 function updateIngredients() {
@@ -231,10 +302,10 @@ function updateIngredients() {
     // Move the ingredient downwards
     ingredients[i].pos.y += ingredients[i].speed;
     // Bring the ingredient back to top once it's past the bottom of the screen
-    if(ingredients[i].pos.y >= G.HEIGHT) {
+    if (ingredients[i].pos.y >= G.HEIGHT) {
       ingredients[i].pos.y = 0;
       //give it a new random X
-      let posX = rnd(0, RIGHT_SCREEN_EDGE - (INGREDIENT_WIDTH * 1.5));
+      let posX = rnd(6, RIGHT_SCREEN_EDGE - 6);
       ingredients[i].pos.x = posX;
     }
 
@@ -253,7 +324,7 @@ function updateIngredients() {
       //it used to remove the ingredient, 
       //but resetting it allows for repeated attempts
       //of making that burger if the player fails
-      let posX = rnd(0, RIGHT_SCREEN_EDGE - (INGREDIENT_WIDTH * 1.5));
+      let posX = rnd(6, RIGHT_SCREEN_EDGE - 6);
       ingredients[i].pos.x = posX;
       ingredients[i].pos.y = 0;
       //add the color content to the burger array of the current burger being built
@@ -286,12 +357,7 @@ function sellBurger() {
   //check if burger is in the burger list
   for (let i = 0; i < burgerList.length; i++) {
     if (burgerList[i].length == burger.length) {
-      console.log("burger: " + burger);
-      console.log(`burger${i} in list: ` + burgerList[i]);
-      //TODO: change indexing of j to start at burgerList[i].length - 1 and decrement to 0
       for (let j = 0; j < burgerList[i].length; j++) {
-        console.log(`burger ingr${j}: ` + burger[j]);
-        console.log(`burger${i} ingr${j} in list: ` + burgerList[i][j]);
         //traverse the burger index backwards 
         //because the burger in play is stacked from bottom to top
         //while the menu requires the burgers to be displayed top to bottom
@@ -306,12 +372,14 @@ function sellBurger() {
   }
   //if we found the burger, sell it!!!!
   if (index > -1) {
-    score += (burger.length * 25) + 50; //get a bigger score for a bigger burger
+    //get a bigger score for a bigger burger and for selling burger at a tougher difficulty
+    score += (burger.length * 25) + (25 * burgerList.length); 
     //because we have made the burger correctly, 
     //we don't need those corresponding ingredients in the play field anymore
-    for(let i = 0; i < burger.length; i++){
-      removeIngredient(burger[i].color);
+    for (let i = 0; i < burger.length; i++) {
+      removeIngredient(burger[i]);
     }
+    //removing the burger from the list will automatically update in UI on its own
     burgerList.splice(index, 1);
   }
 
@@ -361,17 +429,59 @@ function addBurgerToOrderMenu() {
 }
 
 function displayUI() {
+  color("black");
+  //display shops in game screen
+  char('f', 3, G.HEIGHT - 9);
+  char('g', 1, G.HEIGHT - 3);
+  char('h', RIGHT_SCREEN_EDGE - 3, G.HEIGHT - 9);
+  char('i', RIGHT_SCREEN_EDGE - 3, G.HEIGHT - 3);
+
   //Draw the menu UI
   //black menu background
-  color("black");
   rect(RIGHT_SCREEN_EDGE, 0, MENU_WIDTH, G.HEIGHT);
-  //white line below text
+
+  //white line below text (serves as loading bar for next burger in the menu)
   color("white");
-  rect(RIGHT_SCREEN_EDGE + 1, MENU_LINE_HEIGHT, MENU_WIDTH - 2, 1);
+  rect(RIGHT_SCREEN_EDGE + 1, MENU_LINE_HEIGHT, currentLoadingBarWidth, 1);
+  if (burgerList.length == 0) {
+    currentLoadingBarWidth = MAX_LOADING_BAR_WIDTH;
+    addBurgerToOrderMenu();
+  }
+  if (ticks % loadingTime == 0) {
+    currentLoadingBarWidth--;
+  }
+  if (currentLoadingBarWidth <= 0) {
+    currentLoadingBarWidth = MAX_LOADING_BAR_WIDTH;
+    addBurgerToOrderMenu();
+  }
+
   //order menu text for UI
   text(`
   order 
   menu`, RIGHT_SCREEN_EDGE - 9, -3, { color: "white" });
+
+  //menu burger limit text for UI
+  if (burgerList.length < 4) {
+    text(`
+   ${burgerList.length}/${MAX_BURGERS}
+`, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "white" });
+  }
+  if (burgerList.length >= 4) {
+    text(`
+   ${burgerList.length}/${MAX_BURGERS}
+ `, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "yellow" });
+  }
+  if (burgerList.length >= 6) {
+    text(`
+   ${burgerList.length}/${MAX_BURGERS}
+ `, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "light_red" });
+  }
+  if (burgerList.length == 8) {
+    text(`
+   ${burgerList.length}/${MAX_BURGERS}
+ `, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "red" });
+  }
+
 
   //displays burgers in the menu UI and shifts burgers down when burgers are adding to the list
   displayBurgerUI();
@@ -403,3 +513,24 @@ function displayBurgerUI() {
     }
   }
 }
+
+/* Input logic that could use tinkering to get the feel right
+  //check hold vs tap input
+  if (input.isPressed && !input.isJustPressed) {
+    //wait enough time to differentiate a click vs hold
+    timer += 1;
+    if (timer >= waitTime)
+      player.speed = 0;
+  }
+  if (input.isJustReleased) {
+    //if the player held the input
+    if (timer >= waitTime) {
+      //reset player speed when they stop holding
+      player.speed = (player.side == "left" ? -1 : 1);
+    }
+    else { //otherwise they didn't hold the button long enough, therefor they tapped
+      changeDirection();
+    }
+    timer = 0;
+  }
+*/
