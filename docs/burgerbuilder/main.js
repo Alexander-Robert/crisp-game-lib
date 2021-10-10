@@ -77,7 +77,7 @@ const G = {
   WIDTH: 130,
   HEIGHT: 100,
 
-  PLAYER_SPEED: 0.8,
+  PLAYER_SPEED: 0.7,
 
   FALLING_SPEED_MIN: 0.4,
   FALLING_SPEED_MAX: 0.7,
@@ -87,7 +87,7 @@ const MENU_WIDTH = 30;
 const MENU_LINE_HEIGHT = 13; //the top of where the menu images will start spawning
 const RIGHT_SCREEN_EDGE = G.WIDTH - MENU_WIDTH; //the playable game width 
 const INITIAL_BURGER_AMOUNT = 1; //how many burgers are being ordered at the start of the game
-const MAX_BURGERS = 8; //the maximum number of burgers allowed on the burger menu.
+const MAX_BURGERS = 5; //the maximum number of burgers allowed on the burger menu.
 const INGREDIENT_WIDTH = 6;
 const MAX_LOADING_BAR_WIDTH = MENU_WIDTH - 2;
 //length of loading bar, used to determine when next burger is added to order menu
@@ -99,9 +99,9 @@ let loadingTime = 60;
 //Important settings that define key aspects of the game, e.g. viewport, music, etc.
 options = {
   viewSize: { x: G.WIDTH, y: G.HEIGHT },
-  //isPlayingBgm: true,
+  isPlayingBgm: true,
   //isShowingTime: true,
-  //seed: 2,
+  seed: 69,
   //isReplayEnabled: true,
   //theme: "dark",
 };
@@ -165,7 +165,7 @@ function update() {
   //lose condition
   if (burgerList.length > MAX_BURGERS) {
     //TODO: fix the end message
-    end(`Too many hungry customers!!!`);
+    end();
   }
 }
 
@@ -202,7 +202,7 @@ function updatePlayer() {
 
   //reset player speed when they stop holding
   if (input.isJustReleased) {
-    player.speed = (player.side == "left" ? -1 : 1);
+    player.speed = (player.side == "left" ? -G.PLAYER_SPEED : G.PLAYER_SPEED);
     timer = 0;
   }
 
@@ -239,7 +239,7 @@ function updateTray() {
     },
     //the current hitbox for ingredients to collide with the tray and current burger
     hitbox: {
-      x: player.pos.x + (player.side == "left" ? -3 : 3),
+      x: player.pos.x + (player.side == "left" ? -6 : 0),
       y: player.pos.y - 4,
       width: 6,
       height: 2,
@@ -268,7 +268,7 @@ function updateTray() {
 function createIngredient(givenColor) {
   // Random number generator function
   // rnd( min, max )
-  const posX = rnd(6, RIGHT_SCREEN_EDGE - 6);
+  const posX = rnd(12, RIGHT_SCREEN_EDGE - 12);
   const posY = rnd(0, -50);
   // create an ingredient object with appropriate properties
   let ingredient = {
@@ -287,12 +287,12 @@ function removeIngredient(givenColor) {
   for (let i = 0; i < ingredients.length; i++) {
     if (ingredients[i].color == givenColor) {
       removeThisIngredient.push(ingredients[i]);
-      ingredients.splice(i, 1); //remove an ingredient of that color
+      ingredients.splice(i, 1); //remove an ingredient of that color from our internal handling
       break;
     }
   }
   remove(removeThisIngredient, (ingredient) => {
-    return (true);
+    return (true); //remove the ingredient from the framework's handling
   });
 }
 
@@ -305,7 +305,7 @@ function updateIngredients() {
     if (ingredients[i].pos.y >= G.HEIGHT) {
       ingredients[i].pos.y = 0;
       //give it a new random X
-      let posX = rnd(6, RIGHT_SCREEN_EDGE - 6);
+      let posX = rnd(12, RIGHT_SCREEN_EDGE - 12);
       ingredients[i].pos.x = posX;
     }
 
@@ -324,7 +324,7 @@ function updateIngredients() {
       //it used to remove the ingredient, 
       //but resetting it allows for repeated attempts
       //of making that burger if the player fails
-      let posX = rnd(6, RIGHT_SCREEN_EDGE - 6);
+      let posX = rnd(12, RIGHT_SCREEN_EDGE - 12);
       ingredients[i].pos.x = posX;
       ingredients[i].pos.y = 0;
       //add the color content to the burger array of the current burger being built
@@ -337,16 +337,6 @@ function updateIngredients() {
     // Draw the ingredient as a rectangle 
     rect(ingredients[i].pos, INGREDIENT_WIDTH, 2);
   }
-
-  // remove(ingredients, (ingredient) => {
-
-  //   //NOTE: If you're wondering where the burger is being drawn, look at updateTray()
-  //   // return boolean determines if the current ingredient being evaluated is to be deleted or not.
-  //   return (false);
-  // });
-  // while(ingredients.length != ingredientAmount) {
-  //   createIngredient();
-  // }
 }
 
 function sellBurger() {
@@ -381,6 +371,8 @@ function sellBurger() {
     }
     //removing the burger from the list will automatically update in UI on its own
     burgerList.splice(index, 1);
+    //reset the loading bar for getting a burger correct
+    currentLoadingBarWidth = MAX_LOADING_BAR_WIDTH * 1.5;
   }
 
   //else, you sold garbage! (remove some score points)
@@ -405,7 +397,14 @@ function addBurgerToOrderMenu() {
     "cyan"
   ];
   let newBurger = [];
-  let numOfIngredients = rndi(3, 6);
+  //size of burgers are bigger when there's less orders on the menu, vice versa.
+  let numOfIngredients = 0;
+  if(burgerList.length <= 1)
+    numOfIngredients = rndi(4, 6);
+  if(burgerList.length == 2)
+    numOfIngredients = rndi(3, 5);
+  if(burgerList.length >= 3)
+    numOfIngredients = 3;
   //add a random number of indredients to the burger
   for (let i = 0; i < numOfIngredients; i++) {
     //if this is the last ingredient (AKA the bun) make it the same color as the other bun
@@ -440,12 +439,33 @@ function displayUI() {
   //black menu background
   rect(RIGHT_SCREEN_EDGE, 0, MENU_WIDTH, G.HEIGHT);
 
+  switch (burgerList.length) {
+    case 1:
+      loadingTime = 25;
+      break;
+    case 2:
+      loadingTime = 45;
+      break;
+    case 3:
+      loadingTime = 55;
+      break;
+    case 4:
+      loadingTime = 65;
+      break;
+    case 5:
+      loadingTime = 70;
+      break;
+    default:
+      loadingTime = 70;
+      break;
+  };
+
   //white line below text (serves as loading bar for next burger in the menu)
   color("white");
   rect(RIGHT_SCREEN_EDGE + 1, MENU_LINE_HEIGHT, currentLoadingBarWidth, 1);
   if (burgerList.length == 0) {
-    currentLoadingBarWidth = MAX_LOADING_BAR_WIDTH;
     addBurgerToOrderMenu();
+    currentLoadingBarWidth = MAX_LOADING_BAR_WIDTH;
   }
   if (ticks % loadingTime == 0) {
     currentLoadingBarWidth--;
@@ -461,22 +481,22 @@ function displayUI() {
   menu`, RIGHT_SCREEN_EDGE - 9, -3, { color: "white" });
 
   //menu burger limit text for UI
-  if (burgerList.length < 4) {
+  if (burgerList.length < 3) {
     text(`
    ${burgerList.length}/${MAX_BURGERS}
 `, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "white" });
   }
-  if (burgerList.length >= 4) {
+  if (burgerList.length == 3) {
     text(`
    ${burgerList.length}/${MAX_BURGERS}
  `, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "yellow" });
   }
-  if (burgerList.length >= 6) {
+  if (burgerList.length == 4) {
     text(`
    ${burgerList.length}/${MAX_BURGERS}
  `, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "light_red" });
   }
-  if (burgerList.length == 8) {
+  if (burgerList.length == 5) {
     text(`
    ${burgerList.length}/${MAX_BURGERS}
  `, RIGHT_SCREEN_EDGE - 9, G.HEIGHT - 11, { color: "red" });
