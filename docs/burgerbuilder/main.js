@@ -101,7 +101,7 @@ options = {
   viewSize: { x: G.WIDTH, y: G.HEIGHT },
   isPlayingBgm: true,
   //isShowingTime: true,
-  seed: 69,
+  seed: 7, //other decent seed numbers for sound: 69, 4
   //isReplayEnabled: true,
   //theme: "dark",
 };
