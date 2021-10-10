@@ -55,14 +55,14 @@ const MENU_WIDTH = 30;
 const MENU_LINE_HEIGHT = 13; //the top of where the menu images will start spawning
 const RIGHT_SCREEN_EDGE = G.WIDTH - MENU_WIDTH; //the playable game width 
 const MAX_BURGERS = 8; //the maximum number of burgers allowed on the burger menu.
-const INGREDIENT_AMOUNT = 10; //the amount of ingredients there should be on screen
 const INGREDIENT_WIDTH = 6;
+let ingredientAmount = 0; //the amount of ingredients there should be on screen
 
 //Important settings that define key aspects of the game, e.g. viewport, music, etc.
 options = {
   viewSize: { x: G.WIDTH, y: G.HEIGHT },
   //isPlayingBgm: true,
-  isShowingTime: true,
+  //isShowingTime: true,
   //seed: 2,
   //isReplayEnabled: true,
   //theme: "dark",
@@ -75,8 +75,8 @@ options = {
 * @property { number } side - the direction the character is facing
 */
 let player;
+
 //the plate the player uses to catch falling ingredients
-//since it's anchored to the player, it only needs to use the player's properties
 let tray;
 
 //a list of arrays where each array is the color of the ingredient
@@ -87,14 +87,10 @@ let burgerList = [];
 let burger = [];
 
 //the list of colors that the ingredients can be
-let colorsList = [
-  "red",
-  "green",
-  "yellow",
-  "blue",
-  "purple",
-  "cyan"
-];
+let colorsList = ["red", "green", "yellow", "blue", "purple", "cyan"];
+
+//the list of colors that are required from the order menu right now/
+let requiredColorsList = [];
 
 //array of all the falling ingredients
 let ingredients = [];
@@ -104,7 +100,7 @@ function update() {
     //create two burgers on the menu at the start of the game
     times(2, () => { addBurgerToOrderMenu(); });
     //create the correct amount of ingredients for gameplay
-    times(INGREDIENT_AMOUNT, () => { createIngredient(); });
+    //times(ingredientAmount, () => { createIngredient(); });
 
     //define the player
     player = {
@@ -140,14 +136,12 @@ function updatePlayer() {
   //check tap input
   if (input.isJustPressed) {
     changeDirection();
-    //addBurgerToOrderMenu();
   }
 
   //TODO: check holding input (with a console log)
 
   //check if player touches edge of screen
   if (player.pos.x >= RIGHT_SCREEN_EDGE || player.pos.x <= 0) {
-    //TODO: Sell the burger 
     sellBurger();
     changeDirection();
   }
@@ -201,24 +195,34 @@ function updateTray() {
     }
   }
   //draw the tray
-  color("red");
+  color("black");
   char("e", tray.displayPos.x, tray.displayPos.y);
 }
 
-function createIngredient() {
+function createIngredient(givenColor) {
   // Random number generator function
   // rnd( min, max )
-  const posX = rnd(0, RIGHT_SCREEN_EDGE - INGREDIENT_WIDTH);
-  let randomIndex = rndi(0, colorsList.length - 1);
-  let randomColor = colorsList[randomIndex];
+  const posX = rnd(0, RIGHT_SCREEN_EDGE - (INGREDIENT_WIDTH * 1.5));
+  const posY = rnd(0, -50);
   // create an ingredient object with appropriate properties
   let ingredient = {
     // Creates a Vector
-    pos: vec(posX, 0),
+    pos: vec(posX, posY),
     speed: rnd(G.FALLING_SPEED_MIN, G.FALLING_SPEED_MAX),
-    color: randomColor
+    //uses givenColor so that every time we create an ingredient in the burger order menu
+    //we will create the corresponding ingredient in the gameplay field
+    color: givenColor
   }
   ingredients.push(ingredient);
+}
+
+function removeIngredient(givenColor) {
+  for(let i = 0; i < ingredients.length; i++) {
+    if (ingredients[i].color == givenColor) {
+      ingredients.splice(i,1); //remove an ingredient of that color
+      break;
+    }
+  }
 }
 
 function updateIngredients() {
@@ -227,40 +231,51 @@ function updateIngredients() {
     // Move the ingredient downwards
     ingredients[i].pos.y += ingredients[i].speed;
     // Bring the ingredient back to top once it's past the bottom of the screen
-    ingredients[i].pos.wrap(0, G.WIDTH, 0, G.HEIGHT);
+    if(ingredients[i].pos.y >= G.HEIGHT) {
+      ingredients[i].pos.y = 0;
+      //give it a new random X
+      let posX = rnd(0, RIGHT_SCREEN_EDGE - (INGREDIENT_WIDTH * 1.5));
+      ingredients[i].pos.x = posX;
+    }
 
-    // Choose a color to draw
+    //check if ingredient hitbox is colliding with the tray's hitbox
+    let colliding = false;
+    let ingredientWidth = 6;
+    let ingredientHeight = 2;
+    if (ingredients[i].pos.x < tray.hitbox.x + tray.hitbox.width &&
+      ingredients[i].pos.x + ingredientWidth > tray.hitbox.x &&
+      ingredients[i].pos.y < tray.hitbox.y + tray.hitbox.height &&
+      ingredients[i].pos.y + ingredientHeight > tray.hitbox.y) {
+      colliding = true;
+    }
+    if (colliding) {
+      //resetting ingredients that collide with the tray/burger
+      //it used to remove the ingredient, 
+      //but resetting it allows for repeated attempts
+      //of making that burger if the player fails
+      let posX = rnd(0, RIGHT_SCREEN_EDGE - (INGREDIENT_WIDTH * 1.5));
+      ingredients[i].pos.x = posX;
+      ingredients[i].pos.y = 0;
+      //add the color content to the burger array of the current burger being built
+      burger.push(ingredients[i].color);
+      play("powerUp");
+    }
+
+    // Choose the correct color to draw
     color(ingredients[i].color);
-    //color("light_black");
     // Draw the ingredient as a rectangle 
     rect(ingredients[i].pos, INGREDIENT_WIDTH, 2);
   }
 
-  //removing ingredients that collide with the tray/burger
-  remove(ingredients, (ingredient) => {
-    //check if ingredient hitbox is colliding with the tray's hitbox
-    let colliding = false;
-    let ingredientWidth = 6;
-    let ingredientHeight = 2;    
-    if (ingredient.pos.x                  < tray.hitbox.x + tray.hitbox.width &&
-      ingredient.pos.x + ingredientWidth  > tray.hitbox.x &&
-      ingredient.pos.y                    < tray.hitbox.y + tray.hitbox.height &&
-      ingredient.pos.y + ingredientHeight > tray.hitbox.y) {
-      colliding = true;
-    }
-    if (colliding) {
-      // console.log("collided with tray!");
-      // console.log("ingredient:");
-      // console.log(ingredient);
-      //add the color content to the burger array of the current burger being built
-      burger.push(ingredient.color);
-      play("powerUp");
-    }
-    //NOTE: If you're wondering where the burger is being drawn, look at updateTray()
-    // return boolean determines if the current ingredient being evaluated is to be deleted or not.
-    return (colliding);
-  });
+  // remove(ingredients, (ingredient) => {
 
+  //   //NOTE: If you're wondering where the burger is being drawn, look at updateTray()
+  //   // return boolean determines if the current ingredient being evaluated is to be deleted or not.
+  //   return (false);
+  // });
+  // while(ingredients.length != ingredientAmount) {
+  //   createIngredient();
+  // }
 }
 
 function sellBurger() {
@@ -271,8 +286,16 @@ function sellBurger() {
   //check if burger is in the burger list
   for (let i = 0; i < burgerList.length; i++) {
     if (burgerList[i].length == burger.length) {
+      console.log("burger: " + burger);
+      console.log(`burger${i} in list: ` + burgerList[i]);
+      //TODO: change indexing of j to start at burgerList[i].length - 1 and decrement to 0
       for (let j = 0; j < burgerList[i].length; j++) {
-        if (burger[j] !== burgerList[i][j]) break;
+        console.log(`burger ingr${j}: ` + burger[j]);
+        console.log(`burger${i} ingr${j} in list: ` + burgerList[i][j]);
+        //traverse the burger index backwards 
+        //because the burger in play is stacked from bottom to top
+        //while the menu requires the burgers to be displayed top to bottom
+        if (burger[(burgerList[i].length - 1) - j] !== burgerList[i][j]) break;
         if (j == burgerList[i].length - 1) equal = true;
       }
     }
@@ -283,11 +306,19 @@ function sellBurger() {
   }
   //if we found the burger, sell it!!!!
   if (index > -1) {
+    score += (burger.length * 25) + 50; //get a bigger score for a bigger burger
+    //because we have made the burger correctly, 
+    //we don't need those corresponding ingredients in the play field anymore
+    for(let i = 0; i < burger.length; i++){
+      removeIngredient(burger[i].color);
+    }
     burgerList.splice(index, 1);
   }
+
   //else, you sold garbage! (remove some score points)
   else {
-    //TODO: remove points for bad burger
+    score -= 25;
+    //TODO: refine points loss amount for bad burger?
   }
 
   //clear the tray of the current burger
@@ -312,16 +343,18 @@ function addBurgerToOrderMenu() {
     //if this is the last ingredient (AKA the bun) make it the same color as the other bun
     if (i == numOfIngredients - 1) {
       newBurger.push(newBurger[0]);
+      createIngredient(newBurger[0]);
       break;
     }
     //and give each ingredient a random color
-    let randomColor = currentColorsList[rndi(0, currentColorsList.length - 1)];
+    let randomIndex = rndi(0, currentColorsList.length);
+    let randomColor = currentColorsList[randomIndex];
     let index = currentColorsList.indexOf(randomColor);
     if (index > -1) {
       currentColorsList.splice(index, 1);
     }
-    else console.warn("addBurgerToOrderMenu(): could not find color in list");
     newBurger.push(randomColor);
+    createIngredient(randomColor);
   }
   //add the burger to the end of the list
   burgerList.push(newBurger);
