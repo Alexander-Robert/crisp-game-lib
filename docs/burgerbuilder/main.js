@@ -45,16 +45,17 @@ const G = {
   WIDTH: 130,
   HEIGHT: 100,
 
-  PLAYER_SPEED: 1,
+  PLAYER_SPEED: 0.8,
 
-  FALLING_SPEED_MIN: 0.7,
-  FALLING_SPEED_MAX: 0.9,
+  FALLING_SPEED_MIN: 0.4,
+  FALLING_SPEED_MAX: 0.7,
 };
 
 const MENU_WIDTH = 30;
 const MENU_LINE_HEIGHT = 13; //the top of where the menu images will start spawning
 const RIGHT_SCREEN_EDGE = G.WIDTH - MENU_WIDTH; //the playable game width 
 const MAX_BURGERS = 8; //the maximum number of burgers allowed on the burger menu.
+const INGREDIENT_AMOUNT = 10; //the amount of ingredients there should be on screen
 const INGREDIENT_WIDTH = 6;
 
 //Important settings that define key aspects of the game, e.g. viewport, music, etc.
@@ -102,8 +103,8 @@ function update() {
   if (!ticks) { //INITIALIZE SECTION-----------------------------------------
     //create two burgers on the menu at the start of the game
     times(2, () => { addBurgerToOrderMenu(); });
-    //temp code for falling ingredients
-    times(10, () => { createIngredient(); });
+    //create the correct amount of ingredients for gameplay
+    times(INGREDIENT_AMOUNT, () => { createIngredient(); });
 
     //define the player
     player = {
@@ -147,7 +148,7 @@ function updatePlayer() {
   //check if player touches edge of screen
   if (player.pos.x >= RIGHT_SCREEN_EDGE || player.pos.x <= 0) {
     //TODO: Sell the burger 
-    //sellBurger();
+    sellBurger();
     changeDirection();
   }
   player.pos.clamp(0, RIGHT_SCREEN_EDGE, 0, G.HEIGHT); //TODO: safety line of code? Is this needed?
@@ -172,7 +173,9 @@ function updateTray() {
     //the display position for the tray image itself
     displayPos: {
       x: player.pos.x + (player.side == "left" ? -3 : 3),
-      y: player.pos.y - 4
+      y: player.pos.y - 4,
+      width: 6,
+      height: 2,
     },
     //the current hitbox for ingredients to collide with the tray and current burger
     hitbox: {
@@ -181,22 +184,25 @@ function updateTray() {
       width: 6,
       height: 2,
     }
-  }
-  //TODO: calculate the tray's hitbox given the current burger
+  };
   if (burger.length > 0) {
     //the y level is at the top of the current burger stack 
     //(remember the top left of the screen is coords 0,0)
-    tray.hitbox.y = tray.displayPos.y - burger.length;
-    tray.hitbox.height = 2 + burger.length;
+    tray.hitbox.y = tray.displayPos.y - (burger.length * 2);
+    tray.hitbox.height = burger.length * 2;
+    
+    //now draw the current burger!
+    for(let i = 0; i < burger.length; i++) {
+      color(burger[i]);
+      rect(vec(tray.displayPos.x - (tray.displayPos.width/2), 
+      tray.displayPos.y - ((i+1)*2)), 
+      tray.displayPos.width, 
+      tray.displayPos.height);
+    }
   }
   //draw the tray
   color("red");
   char("e", tray.displayPos.x, tray.displayPos.y);
-}
-
-function clearTray() {
-  //TODO: figure out how you want to clear the tray.
-  //includes removing the rectangles on the tray and the burger color array
 }
 
 function createIngredient() {
@@ -209,7 +215,7 @@ function createIngredient() {
   let ingredient = {
     // Creates a Vector
     pos: vec(posX, 0),
-    speed: rnd(G.STAR_SPEED_MIN, G.STAR_SPEED_MAX),
+    speed: rnd(G.FALLING_SPEED_MIN, G.FALLING_SPEED_MAX),
     color: randomColor
   }
   ingredients.push(ingredient);
@@ -230,6 +236,7 @@ function updateIngredients() {
     rect(ingredients[i].pos, INGREDIENT_WIDTH, 2);
   }
 
+  //removing ingredients that collide with the tray/burger
   remove(ingredients, (ingredient) => {
     //check if ingredient hitbox is colliding with the tray's hitbox
     let colliding = false;
@@ -242,14 +249,16 @@ function updateIngredients() {
       colliding = true;
     }
     if (colliding) {
-      console.log("collided with tray!");
-      console.log("ingredient:");
-      console.log(ingredient);
+      // console.log("collided with tray!");
+      // console.log("ingredient:");
+      // console.log(ingredient);
+      //add the color content to the burger array of the current burger being built
+      burger.push(ingredient.color);
       play("powerUp");
     }
-
+    //NOTE: If you're wondering where the burger is being drawn, look at updateTray()
     // return boolean determines if the current ingredient being evaluated is to be deleted or not.
-    return (false);
+    return (colliding);
   });
 
 }
@@ -281,7 +290,10 @@ function sellBurger() {
     //TODO: remove points for bad burger
   }
 
-  clearTray();
+  //clear the tray of the current burger
+  //this works because the burger simply holds the colors of the ingredients
+  //so other functions using the burger will auto update their state of it
+  burger = [];
 }
 
 function addBurgerToOrderMenu() {
