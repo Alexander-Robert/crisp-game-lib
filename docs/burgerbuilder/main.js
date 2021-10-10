@@ -174,8 +174,8 @@ function updatePlayer() {
   player.pos.x += player.speed;
 
   //create some particles while moving
-  if(player.speed != 0) {
-    color ("black");
+  if (player.speed != 0) {
+    color("black");
     let offset = (player.side == "left") ? -3 : 3;
     particle(
       player.pos.x - offset, // x coordinate
@@ -363,7 +363,7 @@ function sellBurger() {
   //if we found the burger, sell it!!!!
   if (index > -1) {
     //get a bigger score for a bigger burger and for selling burger at a tougher difficulty
-    score += (burger.length * 25) + (25 * burgerList.length); 
+    score += (burger.length * 25) + (25 * burgerList.length);
     //because we have made the burger correctly, 
     //we don't need those corresponding ingredients in the play field anymore
     for (let i = 0; i < burger.length; i++) {
@@ -373,12 +373,42 @@ function sellBurger() {
     burgerList.splice(index, 1);
     //reset the loading bar for getting a burger correct
     currentLoadingBarWidth = MAX_LOADING_BAR_WIDTH * 1.5;
-  }
 
+    //color for particles when you sold a burger correctly
+    color("purple");
+    play("coin");
+  }
+  
   //else, you sold garbage! (remove some score points)
   else {
-    score -= 25;
     //TODO: refine points loss amount for bad burger?
+    score -= 25;
+    //color for particles when you sold a bad burger
+    color("green");
+    play("hit");
+    
+  }
+
+  //make particles at the shop the player sold the burger
+  if (player.pos.x > RIGHT_SCREEN_EDGE / 2) {
+    particle(
+      RIGHT_SCREEN_EDGE, // x coordinate
+      player.pos.y, // y coordinate
+      25, // The number of particles
+      1.5, // The speed of the particles
+      PI * -1, // The emitting angle
+      PI / 1.5 // The emitting width
+    );
+  }
+  else {
+    particle(
+      0, // x coordinate
+      player.pos.y, // y coordinate
+      25, // The number of particles
+      1.5, // The speed of the particles
+      0, // The emitting angle
+      PI / 1.5 // The emitting width
+    );
   }
 
   //clear the tray of the current burger
@@ -399,11 +429,11 @@ function addBurgerToOrderMenu() {
   let newBurger = [];
   //size of burgers are bigger when there's less orders on the menu, vice versa.
   let numOfIngredients = 0;
-  if(burgerList.length <= 1)
+  if (burgerList.length <= 1)
     numOfIngredients = rndi(4, 6);
-  if(burgerList.length == 2)
+  if (burgerList.length == 2)
     numOfIngredients = rndi(3, 5);
-  if(burgerList.length >= 3)
+  if (burgerList.length >= 3)
     numOfIngredients = 3;
   //add a random number of indredients to the burger
   for (let i = 0; i < numOfIngredients; i++) {
