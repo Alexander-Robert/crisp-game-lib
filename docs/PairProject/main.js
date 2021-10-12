@@ -92,7 +92,7 @@ function generateRoom() {
       requiredEntrance = "east";
       targetPosition = vec(currentRoom.row, currentRoom.col - 1);
       // Test for acceptable orientations
-      if (targetPosition.y > 0) {
+      if (targetPosition.y == 1) {
         acceptableRoomOrientations.push("1x2");
       } else if (targetPosition.y == 0) {
         acceptableRoomOrientations.push("2x1");
@@ -122,7 +122,7 @@ function generateRoom() {
       requiredEntrance = "west";
       targetPosition = vec(currentRoom.row, currentRoom.col + 1);
       // Test for acceptable orientations
-      if(targetPosition.y < SETTINGS.LAYOUT_WIDTH - 1) {
+      if(targetPosition.y == SETTINGS.LAYOUT_WIDTH - 2) {
         acceptableRoomOrientations.push("1x2");
       } else if (targetPosition.y == SETTINGS.LAYOUT_WIDTH - 1) {
         acceptableRoomOrientations.push("2x1");
