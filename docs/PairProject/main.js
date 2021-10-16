@@ -1,3 +1,4 @@
+// @ts-nocheck
 //Pair Prototype Project
 //Authors: Alexander Robert and Milo Fisher
 
@@ -171,9 +172,26 @@ const spikeOffset = 3;
 const arrowOffset = 2;
 const exitOffsetX = 2;
 const exitOffsetY = 3;
+let backgroundColors = ["light_green", "light_red", "light_purple", "light_yellow", "light_cyan"];
+
+function readTextFile(file, callback) {
+  var rawFile = new XMLHttpRequest();
+  rawFile.overrideMimeType("application/json");
+  rawFile.open("GET", file, true);
+  rawFile.onreadystatechange = function () {
+    if (rawFile.readyState === 4 && rawFile.status == "200") {
+      callback(rawFile.responseText);
+    }
+  }
+  rawFile.send(null);
+}
 
 // Called once upon initialization
 function start() {
+  readTextFile("PairProject/test.json", function (text) {
+    var data = JSON.parse(text);
+    console.log(data);
+  });
   //Initialize variables
   worldOffsetX = 0;
   worldOffsetY = 0;
@@ -282,11 +300,7 @@ function updateBackground(){
   for(var r = 0; r < roomLayout.length; r++) {
     for(var c = 0; c < SETTINGS.LAYOUT_WIDTH; c++) {
       if(roomLayout[r][c] != undefined) {
-        if (r % 2 == 0 ? c % 2 == 0 : c % 2 == 1){
-          color("light_green");
-        } else {
-          color("light_yellow");
-        }
+        color(backgroundColors[(r * SETTINGS.WIDTH + c) % backgroundColors.length]);
         box(c * 120 + SETTINGS.BASE_OFFSET_X + worldOffsetX, r * -120 + SETTINGS.BASE_OFFSET_Y + worldOffsetY, 120);
       }
     }
