@@ -1,7 +1,6 @@
 // @ts-nocheck
 //Pair Prototype Project
 //Authors: Alexander Robert and Milo Fisher
-
 title = "Puzzle Platform";
 
 description = `
@@ -924,7 +923,7 @@ function t5() {
   this.exit = "west"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
+  this.spawnObjects = (r, c) => {
     // Room position is calculated based off of relative row and column plus some other offsets
     var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
   };
