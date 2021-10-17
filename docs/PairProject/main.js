@@ -162,6 +162,8 @@ let ground; //temp object to stop the player from falling forever
 let cameraPanning;
 let worldOffsetX;
 let worldOffsetY;
+let cycle = ["right", "right", "up", "left", "left", "up"];
+let cyleIterator;
 const unit = 6;
 const stairOffset = 3;
 const teleportOffset = 3;
@@ -173,25 +175,10 @@ const exitOffsetX = 2;
 const exitOffsetY = 3;
 let backgroundColors = ["light_green", "light_red", "light_purple", "light_yellow", "light_cyan"];
 
-function readTextFile(file, callback) {
-  var rawFile = new XMLHttpRequest();
-  rawFile.overrideMimeType("application/json");
-  rawFile.open("GET", file, true);
-  rawFile.onreadystatechange = function () {
-    if (rawFile.readyState === 4 && rawFile.status == "200") {
-      callback(rawFile.responseText);
-    }
-  }
-  rawFile.send(null);
-}
-
 // Called once upon initialization
 function start() {
-  readTextFile("PairProject/test.json", function (text) {
-    var data = JSON.parse(text);
-    console.log(data);
-  });
   //Initialize variables
+  cyleIterator = -1;
   worldOffsetX = 0;
   worldOffsetY = 0;
   cameraPanning = 0;
@@ -202,12 +189,8 @@ function start() {
   startRoomTypes = [0]; // Store all variations of the start room in this array
   roomTypes = [new t0(), new t1(), new t2(), new t3(), new t4(), new t5(), new t6(), new t7(), new t8(), new t9(), new t10(), new t11(), new t12(), new t13(), new t14(), new t15(), new t16(), new t17(), new t18(), new t19()];
   roomLayout = [];
-  currentRoom = undefined;
-  currentRoom = generateRoom();
-  for(var i = 0; i < 10; i++) {
-    currentRoom = generateRoom();
-  }
-  console.log(roomLayout);
+  //Read in room templates from .json files
+  readRoomTemplates();
 
   //define the NPC properties
   npc = {
@@ -231,34 +214,6 @@ function start() {
     width: 6,
     height: 24,
   };
-
-  ground = {
-    pos: vec(0, SETTINGS.HEIGHT - 1),
-    color: "light_black",
-    width: SETTINGS.WIDTH,
-    height: 1
-  };
-  //isolate platforms to their own list?
-  platformList.push(ground);
-
-  //add all objects besides the NPC to the objectList
-  // objectList.push(new upwardSpike(25, 40));
-  // objectList.push(new downwardSpike(25, 50));
-  // objectList.push(new fallingSpike(25, 5, npc.pos.y + 3));
-  // objectList.push(new arrow(0, npc.pos.y + 2, 150));
-  // objectList.push(new arrow(300, npc.pos.y + 2, 150));
-  //objectList.push(new button(50, 30));
-  //objectList.push(new buttonToggle(60, 30));
-  // objectList.push(new jumpPad(240, npc.pos.y + 5)); 
-  // objectList.push(new teleportPad(80, 50, 80, npc.pos.y - 86)); 
-  // objectList.push(new stairsLeft(40, npc.pos.y + 3)); 
-  // objectList.push(new stairsLeft(34, npc.pos.y - 3));
-  // objectList.push(new stairsLeft(28, npc.pos.y - 9));
-  // objectList.push(new stairsLeft(22, npc.pos.y - 15));
-  // objectList.push(new stairsRight(60, npc.pos.y + 3)); 
-  // objectList.push(new stairsRight(66, npc.pos.y - 3));
-  // objectList.push(new stairsRight(72, npc.pos.y - 9));
-  // objectList.push(new stairsRight(78, npc.pos.y - 15));
 }
 
 // Called every frame, 60 fps
@@ -274,10 +229,119 @@ function update() {
   updateNPC();
 }
 
+function readRoomTemplates() {
+  var file = "PairProject/roomTemplates.json";
+  var rawFile = new XMLHttpRequest();
+  rawFile.overrideMimeType("application/json");
+  rawFile.open("GET", file, true);
+  rawFile.onreadystatechange = function () {
+    if (rawFile.readyState === 4 && rawFile.status == "200") {
+      var data = JSON.parse(rawFile.responseText);
+      console.log(data);
+      for(var i = 0; i < data.layers.length; i++) {
+        roomTypes[i].spawnObjects = (type, row, col) => {
+          var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + col * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + row * -120);
+          var teleportEntrances = [];
+          var teleportExits = [];
+          for(var j = 0; j < 400; j++) {
+            var r = 19 - ~~(j/20);
+            var c = j % 20;
+            switch (data.layers[type].data[j]) {
+              //Empty
+              case 0: break;
+              case 2: break;
+              case 2684354562: break;
+              case 3221225474: break;
+              case 1610612738: break;
+              case 2684354563: break;
+              case 3221225475: break;
+              case 4: break;
+              case 2684354565: break;
+              case 1610612741: break;
+              case 2684354567: break;
+              case 3221225479: break;
+              case 1610612743: break;
+              case 8: break;
+              case 2684354568: break;
+              case 3221225480: break;
+              case 1610612744: break;
+              case 2684354569: break;
+              case 3221225481: break;
+              case 1610612745: break;
+              //Barriers
+              case 1: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
+              case 2684354561: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
+              case 3221225473: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
+              case 1610612737: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
+              //Stairs
+              case 3: objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * c, roomPos.y + stairOffset - unit * r)); break;
+              case 1610612739: objectList.push(new stairsRight(roomPos.x + stairOffset + unit * c, roomPos.y + stairOffset - unit * r)); break;
+              //Arrows
+              case 2684354564: objectList.push(new arrow(roomPos.x + arrowOffset + unit * c, roomPos.y + arrowOffset - unit * r, roomPos.x + arrowOffset + unit * 19)); break;
+              case 1610612740: objectList.push(new arrow(roomPos.x + arrowOffset + unit * c, roomPos.y + arrowOffset - unit * r, roomPos.x + arrowOffset + unit * 0)); break;
+              //Falling spikes
+              case 3221225476: objectList.push(new fallingSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r, roomPos.y + arrowOffset + unit * 0)); break;
+              //Upward spikes
+              case 5: objectList.push(new upwardSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r)); break;
+              //Downward spikes
+              case 3221225477: objectList.push(new downwardSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r)); break;
+              //Teleporter entrances
+              case 6: teleportEntrances.push({ row: r, col: c, id: 0 }); break;
+              case 2684354566: teleportEntrances.push({ row: r, col: c, id: 1 }); break;
+              case 3221225478: teleportEntrances.push({ row: r, col: c, id: 2 }); break;
+              case 1610612742: teleportEntrances.push({ row: r, col: c, id: 3 }); break;
+              //Jump pads
+              case 7: objectList.push(new jumpPad(roomPos.x + jumpPadOffsetX + unit * c, roomPos.y + jumpPadOffsetY - unit * r)); break;
+              //Exit goal flag
+              case 9: objectList.push(new exit(roomPos.x + exitOffsetX + unit * c, roomPos.y - exitOffsetY - unit * (r - 1), unit * 1, unit * 6)); break;
+              //Teleporter exits
+              case 10: teleportExits.push({ row: r, col: c, id: 0 }); break;
+              case 2684354570: teleportExits.push({ row: r, col: c, id: 1 }); break;
+              case 3221225482: teleportExits.push({ row: r, col: c, id: 2 }); break;
+              case 1610612746: teleportExits.push({ row: r, col: c, id: 3 }); break;
+            }
+          }
+          if(teleportEntrances.length == teleportExits.length) {
+            for (var j = 0; j < teleportEntrances.length; j++) {
+              for(var k = 0; k < teleportExits.length; k++) {
+                if(teleportEntrances[j].id == teleportExits[k].id) {
+                  objectList.push(new teleportPad(roomPos.x + teleportOffset + unit * teleportEntrances[j].col, roomPos.y + teleportOffset - unit * teleportEntrances[j].row, roomPos.x + teleportOffset + unit * teleportExits[k].col, roomPos.y + teleportOffset - unit * teleportExits[k].row));
+                }
+              }
+            }
+          }
+          else {
+            console.log("Teleport mismatch!");
+          }
+        };
+      }
+      //Generate Rooms
+      currentRoom = undefined;
+      currentRoom = generateRoom();
+      for (var i = 0; i < 10; i++) {
+        currentRoom = generateRoom();
+      }
+      console.log(roomLayout);
+    }
+  }
+  rawFile.send(null);
+}
+
 function panning() {
   if(cameraPanning > 0) {
     cameraPanning -= 1;
-    worldOffsetX -= 1;
+    switch(cycle[cyleIterator % 6])
+    {
+      case "right": 
+        worldOffsetX -= 1;
+        break;
+      case "up": 
+        worldOffsetY += 1;
+        break;
+      case "left": 
+        worldOffsetX += 1;
+        break;
+    }
   }
 }
 
@@ -286,6 +350,7 @@ function panCamera() {
     cameraPanning = 120;
     paddleHold = false;
     paddle.color = "light_blue";
+    cycleIterator++;
   }
   console.log("Panning Camera");
 }
@@ -311,7 +376,7 @@ function drawPhysicsObjects() {
   box(npc.pos.x + worldOffsetX, npc.pos.y + worldOffsetY, 6);
   color("green");
   if(paddle.color == "blue") {
-    rect(paddle.pos.x + worldOffsetX, paddle.pos.y + worldOffsetY, paddle.width, paddle.height);
+    rect(paddle.pos.x, paddle.pos.y, paddle.width, paddle.height);
   }
   for (var i = 0; i < platformList.length; i++) {
     rect(platformList[i].pos.x + worldOffsetX, platformList[i].pos.y + worldOffsetY, platformList[i].width, platformList[i].height);
@@ -806,7 +871,7 @@ function room(type, row, col) {
   this.type = type;
   this.row = row;
   this.col = col;
-  roomTypes[type].spawnObjects(row,col);
+  roomTypes[type].spawnObjects(type, row, col);
 }
 
 /* Custom Room Types (tX):
@@ -825,30 +890,31 @@ function t0() {
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
   this.spawnObjects = (r, c) => {
+    console.log("Function Called [2]: " + ticks);
     // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
+    //var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
     // Barriers are added to the platformList to build up the walls and floors of the room
     // Change the numbers to alter the position/shape with the following pattern:
     // row, col, width, height
-    platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 0, unit * 20, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 19, unit * 20, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 19, unit * 1, unit * 20));
-    platformList.push(new barrier(roomPos.x + unit * 19, roomPos.y - unit * 18, unit * 1, unit * 6));
-    platformList.push(new barrier(roomPos.x + unit * 19, roomPos.y - unit * 6, unit * 1, unit * 6));
-    platformList.push(new barrier(roomPos.x + unit * 13, roomPos.y - unit * 6, unit * 6, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 15, roomPos.y - unit * 15, unit * 1, unit * 9));
-    platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 6, unit * 8, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 9, unit * 5, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 13, unit * 10, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 10, roomPos.y - unit * 12, unit * 1, unit * 2));
-    platformList.push(new barrier(roomPos.x + unit * 11, roomPos.y - unit * 11, unit * 4, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 12, roomPos.y - unit * 5, unit * 7, unit * 5));
-    platformList.push(new barrier(roomPos.x + unit * 11, roomPos.y - unit * 4, unit * 1, unit * 4));
-    platformList.push(new barrier(roomPos.x + unit * 10, roomPos.y - unit * 3, unit * 1, unit * 3));
-    platformList.push(new barrier(roomPos.x + unit * 9, roomPos.y - unit * 2, unit * 1, unit * 2));
-    platformList.push(new barrier(roomPos.x + unit * 8, roomPos.y - unit * 1, unit * 1, unit * 1));
-    platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 8, unit * 6, unit * 2));
-    platformList.push(new barrier(roomPos.x + unit * 7, roomPos.y - unit * 7, unit * 1, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 0, unit * 20, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 19, unit * 20, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 19, unit * 1, unit * 20));
+    // platformList.push(new barrier(roomPos.x + unit * 19, roomPos.y - unit * 18, unit * 1, unit * 6));
+    // platformList.push(new barrier(roomPos.x + unit * 19, roomPos.y - unit * 6, unit * 1, unit * 6));
+    // platformList.push(new barrier(roomPos.x + unit * 13, roomPos.y - unit * 6, unit * 6, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 15, roomPos.y - unit * 15, unit * 1, unit * 9));
+    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 6, unit * 8, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 9, unit * 5, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 13, unit * 10, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 10, roomPos.y - unit * 12, unit * 1, unit * 2));
+    // platformList.push(new barrier(roomPos.x + unit * 11, roomPos.y - unit * 11, unit * 4, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 12, roomPos.y - unit * 5, unit * 7, unit * 5));
+    // platformList.push(new barrier(roomPos.x + unit * 11, roomPos.y - unit * 4, unit * 1, unit * 4));
+    // platformList.push(new barrier(roomPos.x + unit * 10, roomPos.y - unit * 3, unit * 1, unit * 3));
+    // platformList.push(new barrier(roomPos.x + unit * 9, roomPos.y - unit * 2, unit * 1, unit * 2));
+    // platformList.push(new barrier(roomPos.x + unit * 8, roomPos.y - unit * 1, unit * 1, unit * 1));
+    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 8, unit * 6, unit * 2));
+    // platformList.push(new barrier(roomPos.x + unit * 7, roomPos.y - unit * 7, unit * 1, unit * 1));
     // Objects are added to the objectList to spawn objects in the room
     // Change the numbers to alter the positions with the following pattern:
     // row, col
@@ -856,21 +922,21 @@ function t0() {
     // teleport pad other pad coordinates
     // exit height and width (inversely drawn from how barriers are drawn)
     // arrow end X pos so it knows where to redraw it at its start (they loop)
-    objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 7, roomPos.y + stairOffset - unit * 1));
-    objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 8, roomPos.y + stairOffset - unit * 2));
-    objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 9, roomPos.y + stairOffset - unit * 3));
-    objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 10, roomPos.y + stairOffset - unit * 4));
-    objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 11, roomPos.y + stairOffset - unit * 5));
-    objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 12, roomPos.y + stairOffset - unit * 6));
-    objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 8, roomPos.y + stairOffset - unit * 7));
-    objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 7, roomPos.y + stairOffset - unit * 8));
-    objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 6, roomPos.y + stairOffset - unit * 9));
-    objectList.push(new teleportPad(roomPos.x + teleportOffset + unit * 1, roomPos.y + teleportOffset - unit * 10, roomPos.x + teleportOffset + unit * 10, roomPos.y + teleportOffset - unit * 14));
-    objectList.push(new jumpPad(roomPos.x + jumpPadOffsetX + unit * 12, roomPos.y + jumpPadOffsetY - unit * 12));
-    objectList.push(new upwardSpike(roomPos.x + spikeOffset + unit * 1, roomPos.y + spikeOffset - unit * 14));
-    objectList.push(new exit(roomPos.x + exitOffsetX + unit * 19, roomPos.y - exitOffsetY - unit * 6, unit * 1, unit * 6));
-    objectList.push(new arrow(roomPos.x + arrowOffset + unit * 1, roomPos.y + arrowOffset - unit * 18, roomPos.x + arrowOffset + unit * 18));
-    objectList.push(new downwardSpike(roomPos.x + spikeOffset + unit * 1, roomPos.y + spikeOffset - unit * 5));
+    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 7, roomPos.y + stairOffset - unit * 1));
+    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 8, roomPos.y + stairOffset - unit * 2));
+    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 9, roomPos.y + stairOffset - unit * 3));
+    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 10, roomPos.y + stairOffset - unit * 4));
+    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 11, roomPos.y + stairOffset - unit * 5));
+    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 12, roomPos.y + stairOffset - unit * 6));
+    // objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 8, roomPos.y + stairOffset - unit * 7));
+    // objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 7, roomPos.y + stairOffset - unit * 8));
+    // objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 6, roomPos.y + stairOffset - unit * 9));
+    // objectList.push(new teleportPad(roomPos.x + teleportOffset + unit * 1, roomPos.y + teleportOffset - unit * 10, roomPos.x + teleportOffset + unit * 10, roomPos.y + teleportOffset - unit * 14));
+    // objectList.push(new jumpPad(roomPos.x + jumpPadOffsetX + unit * 12, roomPos.y + jumpPadOffsetY - unit * 12));
+    // objectList.push(new upwardSpike(roomPos.x + spikeOffset + unit * 1, roomPos.y + spikeOffset - unit * 14));
+    // objectList.push(new exit(roomPos.x + exitOffsetX + unit * 19, roomPos.y - exitOffsetY - unit * 6, unit * 1, unit * 6));
+    // objectList.push(new arrow(roomPos.x + arrowOffset + unit * 1, roomPos.y + arrowOffset - unit * 18, roomPos.x + arrowOffset + unit * 18));
+    // objectList.push(new downwardSpike(roomPos.x + spikeOffset + unit * 1, roomPos.y + spikeOffset - unit * 5));
   };
 }
 // ROOM 1
