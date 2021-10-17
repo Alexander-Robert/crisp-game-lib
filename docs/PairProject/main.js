@@ -178,7 +178,7 @@ let backgroundColors = ["light_green", "light_red", "light_purple", "light_yello
 // Called once upon initialization
 function start() {
   //Initialize variables
-  cyleIterator = -1;
+  cycleIterator = -1;
   worldOffsetX = 0;
   worldOffsetY = 0;
   cameraPanning = 0;
@@ -330,7 +330,7 @@ function readRoomTemplates() {
 function panning() {
   if(cameraPanning > 0) {
     cameraPanning -= 1;
-    switch(cycle[cyleIterator % 6])
+    switch(cycle[cycleIterator % 6])
     {
       case "right": 
         worldOffsetX -= 1;
