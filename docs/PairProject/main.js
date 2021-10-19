@@ -160,10 +160,14 @@ let objectList; //the array of all objects we check for the NPC colliding with
 let platformList; //the array of all objects we check for the NPC colliding with
 let ground; //temp object to stop the player from falling forever
 let cameraPanning;
+let panSpeed;
 let worldOffsetX;
 let worldOffsetY;
 let cycle = ["right", "right", "up", "left", "left", "up"];
 let cyleIterator;
+let objectsAdded;
+let platformsAdded;
+let gameIsOver;
 const unit = 6;
 const stairOffset = 3;
 const teleportOffset = 3;
@@ -178,17 +182,22 @@ let backgroundColors = ["light_green", "light_red", "light_purple", "light_yello
 // Called once upon initialization
 function start() {
   //Initialize variables
+  gameIsOver = false;
   cycleIterator = -1;
   worldOffsetX = 0;
   worldOffsetY = 0;
   cameraPanning = 0;
+  panSpeed = 2;
   paddleHold = false;
   inputTimer = 0;
   objectList = [];
   platformList = [];
+  objectsAdded = [];
+  platformsAdded = [];
   startRoomTypes = [0]; // Store all variations of the start room in this array
   roomTypes = [new t0(), new t1(), new t2(), new t3(), new t4(), new t5(), new t6(), new t7(), new t8(), new t9(), new t10(), new t11(), new t12(), new t13(), new t14(), new t15(), new t16(), new t17(), new t18(), new t19()];
   roomLayout = [];
+  addScore(1);
   //Read in room templates from .json files
   readRoomTemplates();
 
@@ -227,6 +236,15 @@ function update() {
   updatePlatforms();
   updateObjects();
   updateNPC();
+
+  color("white");
+  text("room " + score, 10, 2);
+
+  if(gameIsOver) {
+    color("white");
+    text("You Died :(", SETTINGS.WIDTH / 2 - 20, SETTINGS.HEIGHT / 2);
+    end("");
+  }
 }
 
 function readRoomTemplates() {
@@ -237,12 +255,13 @@ function readRoomTemplates() {
   rawFile.onreadystatechange = function () {
     if (rawFile.readyState === 4 && rawFile.status == "200") {
       var data = JSON.parse(rawFile.responseText);
-      console.log(data);
       for(var i = 0; i < data.layers.length; i++) {
         roomTypes[i].spawnObjects = (type, row, col) => {
           var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + col * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + row * -120);
           var teleportEntrances = [];
           var teleportExits = [];
+          var oAdded = 0;
+          var pAdded = 0;
           for(var j = 0; j < 400; j++) {
             var r = 19 - ~~(j/20);
             var c = j % 20;
@@ -261,39 +280,40 @@ function readRoomTemplates() {
               case 2684354567: break;
               case 3221225479: break;
               case 1610612743: break;
-              case 8: break;
               case 2684354568: break;
               case 3221225480: break;
               case 1610612744: break;
-              case 2684354569: break;
               case 3221225481: break;
               case 1610612745: break;
               //Barriers
-              case 1: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
-              case 2684354561: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
-              case 3221225473: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
-              case 1610612737: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); break;
+              case 1: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); pAdded++; break;
+              case 2684354561: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); pAdded++; break;
+              case 3221225473: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); pAdded++; break;
+              case 1610612737: platformList.push(new barrier(roomPos.x + unit * c, roomPos.y - unit * r, unit, unit)); pAdded++; break;
               //Stairs
-              case 3: objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * c, roomPos.y + stairOffset - unit * r)); break;
-              case 1610612739: objectList.push(new stairsRight(roomPos.x + stairOffset + unit * c, roomPos.y + stairOffset - unit * r)); break;
+              case 3: objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * c, roomPos.y + stairOffset - unit * r)); oAdded++; break;
+              case 1610612739: objectList.push(new stairsRight(roomPos.x + stairOffset + unit * c, roomPos.y + stairOffset - unit * r)); oAdded++; break;
               //Arrows
-              case 2684354564: objectList.push(new arrow(roomPos.x + arrowOffset + unit * c, roomPos.y + arrowOffset - unit * r, roomPos.x + arrowOffset + unit * 19)); break;
-              case 1610612740: objectList.push(new arrow(roomPos.x + arrowOffset + unit * c, roomPos.y + arrowOffset - unit * r, roomPos.x + arrowOffset + unit * 0)); break;
+              case 2684354564: objectList.push(new arrow(roomPos.x + arrowOffset + unit * c, roomPos.y + arrowOffset - unit * r, roomPos.x + arrowOffset + unit * 19)); oAdded++; break;
+              case 1610612740: objectList.push(new arrow(roomPos.x + arrowOffset + unit * c, roomPos.y + arrowOffset - unit * r, roomPos.x + arrowOffset + unit * 0)); oAdded++; break;
               //Falling spikes
-              case 3221225476: objectList.push(new fallingSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r, roomPos.y + arrowOffset + unit * 0)); break;
+              case 3221225476: objectList.push(new fallingSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r, roomPos.y + arrowOffset + unit * 0)); oAdded++; break;
               //Upward spikes
-              case 5: objectList.push(new upwardSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r)); break;
+              case 5: objectList.push(new upwardSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r)); oAdded++; break;
               //Downward spikes
-              case 3221225477: objectList.push(new downwardSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r)); break;
+              case 3221225477: objectList.push(new downwardSpike(roomPos.x + spikeOffset + unit * c, roomPos.y + spikeOffset - unit * r)); oAdded++; break;
               //Teleporter entrances
               case 6: teleportEntrances.push({ row: r, col: c, id: 0 }); break;
               case 2684354566: teleportEntrances.push({ row: r, col: c, id: 1 }); break;
               case 3221225478: teleportEntrances.push({ row: r, col: c, id: 2 }); break;
               case 1610612742: teleportEntrances.push({ row: r, col: c, id: 3 }); break;
               //Jump pads
-              case 7: objectList.push(new jumpPad(roomPos.x + jumpPadOffsetX + unit * c, roomPos.y + jumpPadOffsetY - unit * r)); break;
+              case 7: objectList.push(new jumpPad(roomPos.x + jumpPadOffsetX + unit * c, roomPos.y + jumpPadOffsetY - unit * r)); oAdded++; break;
+              //Entrance directional barrier
+              case 8: platformList.push(new entrance(roomPos.x + unit * c, roomPos.y - unit * r, unit, 1)); pAdded++; break;
               //Exit goal flag
-              case 9: objectList.push(new exit(roomPos.x + exitOffsetX + unit * c, roomPos.y - exitOffsetY - unit * (r - 1), unit * 1, unit * 6)); break;
+              case 9: objectList.push(new exit(roomPos.x + exitOffsetX + unit * c, roomPos.y - exitOffsetY - unit * (r - 1), unit * 1, unit * 6)); oAdded++; break;
+              case 2684354569: objectList.push(new exit(roomPos.x + exitOffsetX + unit * c, roomPos.y - exitOffsetY - unit * (r - 1), unit * 6, unit * 1)); oAdded++; break;
               //Teleporter exits
               case 10: teleportExits.push({ row: r, col: c, id: 0 }); break;
               case 2684354570: teleportExits.push({ row: r, col: c, id: 1 }); break;
@@ -306,6 +326,7 @@ function readRoomTemplates() {
               for(var k = 0; k < teleportExits.length; k++) {
                 if(teleportEntrances[j].id == teleportExits[k].id) {
                   objectList.push(new teleportPad(roomPos.x + teleportOffset + unit * teleportEntrances[j].col, roomPos.y + teleportOffset - unit * teleportEntrances[j].row, roomPos.x + teleportOffset + unit * teleportExits[k].col, roomPos.y + teleportOffset - unit * teleportExits[k].row));
+                  oAdded++;
                 }
               }
             }
@@ -313,15 +334,14 @@ function readRoomTemplates() {
           else {
             console.log("Teleport mismatch!");
           }
+          objectsAdded.push(oAdded);
+          platformsAdded.push(pAdded);
         };
       }
       //Generate Rooms
       currentRoom = undefined;
       currentRoom = generateRoom();
-      for (var i = 0; i < 10; i++) {
-        currentRoom = generateRoom();
-      }
-      console.log(roomLayout);
+      currentRoom = generateRoom();
     }
   }
   rawFile.send(null);
@@ -329,17 +349,17 @@ function readRoomTemplates() {
 
 function panning() {
   if(cameraPanning > 0) {
-    cameraPanning -= 1;
+    cameraPanning -= panSpeed;
     switch(cycle[cycleIterator % 6])
     {
       case "right": 
-        worldOffsetX -= 1;
+        worldOffsetX -= panSpeed;
         break;
       case "up": 
-        worldOffsetY += 1;
+        worldOffsetY += panSpeed;
         break;
       case "left": 
-        worldOffsetX += 1;
+        worldOffsetX += panSpeed;
         break;
     }
   }
@@ -350,14 +370,38 @@ function panCamera() {
     cameraPanning = 120;
     paddleHold = false;
     paddle.color = "light_blue";
+    if(cycleIterator >= 0) {
+      clearRoom();
+    }
+    if(liveRooms() < cycleIterator + 3) {
+      currentRoom = generateRoom();
+    } 
     cycleIterator++;
+    addScore(1);
   }
-  console.log("Panning Camera");
+}
+
+function liveRooms() {
+  var count = 0;
+  for(var r = 0; r < roomLayout.length; r++) {
+    for(var c = 0; c < SETTINGS.LAYOUT_WIDTH; c++) {
+      if(roomLayout[r][c] != undefined) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+function clearRoom() {
+  objectList.splice(0, objectsAdded[0]);
+  platformList.splice(0, platformsAdded[0]);
+  objectsAdded.splice(0,1);
+  platformsAdded.splice(0, 1);
 }
 
 function gameOver() {
-  console.log("Game Over!");
-  end();
+  gameIsOver = true;
 }
 
 function updateBackground(){
@@ -379,6 +423,11 @@ function drawPhysicsObjects() {
     rect(paddle.pos.x, paddle.pos.y, paddle.width, paddle.height);
   }
   for (var i = 0; i < platformList.length; i++) {
+    if (platformList.ghostSides) {
+      color("yellow");
+    } else {
+      color("green");
+    }
     rect(platformList[i].pos.x + worldOffsetX, platformList[i].pos.y + worldOffsetY, platformList[i].width, platformList[i].height);
   }
 }
@@ -477,7 +526,7 @@ function checkPlatformCollisions(previousNPCProperties) {
   var startSide = npc.side;
   color("transparent");
   // Bottom
-  if (rect(vec(npc.pos.x + worldOffsetX - 3, npc.pos.y + worldOffsetY + 2), 6, 1).isColliding.rect.green) {
+  if (rect(vec(npc.pos.x + worldOffsetX - 3, npc.pos.y + worldOffsetY + 2), 6, 1).isColliding.rect.green || rect(vec(npc.pos.x + worldOffsetX - 3, npc.pos.y + worldOffsetY + 2), 6, 1).isColliding.rect.yellow) {
     npc.pos.y = previousNPCProperties.pos.y; //reset y position
     hitany = true;
   }
@@ -538,7 +587,6 @@ function updatePaddle() {
           paddleHold = true;
           //TODO: check if NPC and light blue paddle are colliding
           paddle.color = "blue";
-          console.log("holding");
         }
       }
     }
@@ -547,11 +595,9 @@ function updatePaddle() {
     if (inputTimer >= SETTINGS.WAIT_TIME) {
       paddleHold = false;
       paddle.color = "light_blue";
-      console.log("hold reset");
       //reset the paddleHold boolean toggle
     }
     else { //otherwise they didn't hold the button long enough, AKA they clicked
-      console.log("clicked!");
       //rotate the paddle!    
       paddle.rotation = (paddle.rotation == "horizontal") ? "vertical" : "horizontal";
       let temp = paddle.width;
@@ -738,10 +784,17 @@ function addRows(amount) {
   }
 }
 
+function entrance(x, y, w, h) {
+  this.pos = vec(x, y);
+  this.width = w;
+  this.height = h;
+  this.ghostSides = true;
+};
 function barrier(x, y, w, h) {
   this.pos = vec(x, y);
   this.width = w;
   this.height = h;
+  this.ghostSides = false;
 };
 function exit(x, y, w, h) {
   this.pos = vec(x, y);
@@ -799,14 +852,14 @@ function button(x, y) {
   this.pressed = false;
   this.pos = vec(x, y);
   this.drawLabel = "g";
-  this.collisionFunction = () => { console.log("NPC pressed button!") };
+  this.collisionFunction = () => {};
   this.updateFunction = () => { };
 };
 function buttonToggle(x, y) {
   this.pressed = false;
   this.pos = vec(x, y);
   this.drawLabel = "g";
-  this.collisionFunction = () => { console.log("NPC pressed buttonToggle!") };
+  this.collisionFunction = () => { };
   this.updateFunction = () => { };
 };
 function jumpPad(x, y) {
@@ -814,7 +867,6 @@ function jumpPad(x, y) {
   this.pos = vec(x, y);
   this.drawLabel = "m";
   this.collisionFunction = () => {
-    console.log("NPC jumped on the jump pad!");
     npc.falling = false;
     npc.jumping = true;
     npc.Yspeed = SETTINGS.NPC_Y_SPEED_JUMPING * -1;
@@ -826,9 +878,8 @@ function teleportPad(x, y, destX, destY) {
   this.pos = vec(x, y);
   this.drawLabel = "g";
   this.collisionFunction = () => {
-    console.log("NPC activated the teleport pad!");
     npc.pos.x = this.destinationPos.x;
-    npc.pos.y = this.destinationPos.y - 3;
+    npc.pos.y = this.destinationPos.y;
   };
   this.updateFunction = () => {
     //draw it's destination teleport pad (allows us to handle source and destination in the same object)
@@ -889,55 +940,7 @@ function t0() {
   this.exit = "east"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    console.log("Function Called [2]: " + ticks);
-    // Room position is calculated based off of relative row and column plus some other offsets
-    //var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-    // Barriers are added to the platformList to build up the walls and floors of the room
-    // Change the numbers to alter the position/shape with the following pattern:
-    // row, col, width, height
-    // platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 0, unit * 20, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 19, unit * 20, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 0, roomPos.y - unit * 19, unit * 1, unit * 20));
-    // platformList.push(new barrier(roomPos.x + unit * 19, roomPos.y - unit * 18, unit * 1, unit * 6));
-    // platformList.push(new barrier(roomPos.x + unit * 19, roomPos.y - unit * 6, unit * 1, unit * 6));
-    // platformList.push(new barrier(roomPos.x + unit * 13, roomPos.y - unit * 6, unit * 6, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 15, roomPos.y - unit * 15, unit * 1, unit * 9));
-    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 6, unit * 8, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 9, unit * 5, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 13, unit * 10, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 10, roomPos.y - unit * 12, unit * 1, unit * 2));
-    // platformList.push(new barrier(roomPos.x + unit * 11, roomPos.y - unit * 11, unit * 4, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 12, roomPos.y - unit * 5, unit * 7, unit * 5));
-    // platformList.push(new barrier(roomPos.x + unit * 11, roomPos.y - unit * 4, unit * 1, unit * 4));
-    // platformList.push(new barrier(roomPos.x + unit * 10, roomPos.y - unit * 3, unit * 1, unit * 3));
-    // platformList.push(new barrier(roomPos.x + unit * 9, roomPos.y - unit * 2, unit * 1, unit * 2));
-    // platformList.push(new barrier(roomPos.x + unit * 8, roomPos.y - unit * 1, unit * 1, unit * 1));
-    // platformList.push(new barrier(roomPos.x + unit * 1, roomPos.y - unit * 8, unit * 6, unit * 2));
-    // platformList.push(new barrier(roomPos.x + unit * 7, roomPos.y - unit * 7, unit * 1, unit * 1));
-    // Objects are added to the objectList to spawn objects in the room
-    // Change the numbers to alter the positions with the following pattern:
-    // row, col
-    // some objects have extra conditions, such as:
-    // teleport pad other pad coordinates
-    // exit height and width (inversely drawn from how barriers are drawn)
-    // arrow end X pos so it knows where to redraw it at its start (they loop)
-    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 7, roomPos.y + stairOffset - unit * 1));
-    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 8, roomPos.y + stairOffset - unit * 2));
-    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 9, roomPos.y + stairOffset - unit * 3));
-    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 10, roomPos.y + stairOffset - unit * 4));
-    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 11, roomPos.y + stairOffset - unit * 5));
-    // objectList.push(new stairsRight(roomPos.x + stairOffset + unit * 12, roomPos.y + stairOffset - unit * 6));
-    // objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 8, roomPos.y + stairOffset - unit * 7));
-    // objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 7, roomPos.y + stairOffset - unit * 8));
-    // objectList.push(new stairsLeft(roomPos.x + stairOffset + unit * 6, roomPos.y + stairOffset - unit * 9));
-    // objectList.push(new teleportPad(roomPos.x + teleportOffset + unit * 1, roomPos.y + teleportOffset - unit * 10, roomPos.x + teleportOffset + unit * 10, roomPos.y + teleportOffset - unit * 14));
-    // objectList.push(new jumpPad(roomPos.x + jumpPadOffsetX + unit * 12, roomPos.y + jumpPadOffsetY - unit * 12));
-    // objectList.push(new upwardSpike(roomPos.x + spikeOffset + unit * 1, roomPos.y + spikeOffset - unit * 14));
-    // objectList.push(new exit(roomPos.x + exitOffsetX + unit * 19, roomPos.y - exitOffsetY - unit * 6, unit * 1, unit * 6));
-    // objectList.push(new arrow(roomPos.x + arrowOffset + unit * 1, roomPos.y + arrowOffset - unit * 18, roomPos.x + arrowOffset + unit * 18));
-    // objectList.push(new downwardSpike(roomPos.x + spikeOffset + unit * 1, roomPos.y + spikeOffset - unit * 5));
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 1
 function t1() {
@@ -945,10 +948,7 @@ function t1() {
   this.exit = "north"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 2
 function t2() {
@@ -956,10 +956,7 @@ function t2() {
   this.exit = "east"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 3
 function t3() {
@@ -967,10 +964,7 @@ function t3() {
   this.exit = "west"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 4
 function t4() {
@@ -978,10 +972,7 @@ function t4() {
   this.exit = "north"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 5
 function t5() {
@@ -989,10 +980,7 @@ function t5() {
   this.exit = "west"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 6
 function t6() {
@@ -1000,10 +988,7 @@ function t6() {
   this.exit = "north"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 7
 function t7() {
@@ -1011,10 +996,7 @@ function t7() {
   this.exit = "east"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x1"; // 1x1, 1x2, or 2x1
   this.half = undefined; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 8
 function t8() {
@@ -1022,20 +1004,14 @@ function t8() {
   this.exit = "north"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "left"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 function t9() {
   this.entrance = "west"; // south, east, or west *Note no north entrances allowed**
   this.exit = "north"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "right"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 9
 function t10() {
@@ -1043,20 +1019,14 @@ function t10() {
   this.exit = "north"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "left"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 function t11() {
   this.entrance = "east"; // south, east, or west *Note no north entrances allowed**
   this.exit = "north"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "right"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 10
 function t12() {
@@ -1064,20 +1034,14 @@ function t12() {
   this.exit = "east"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "left"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 function t13() {
   this.entrance = "south"; // south, east, or west *Note no north entrances allowed**
   this.exit = "east"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "right"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 11
 function t14() {
@@ -1085,20 +1049,14 @@ function t14() {
   this.exit = "west"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "left"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 function t15() {
   this.entrance = "south"; // south, east, or west *Note no north entrances allowed**
   this.exit = "west"; // north, east, or west **Note no south exits allowed**
   this.orientation = "1x2"; // 1x1, 1x2, or 2x1
   this.half = "right"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 12
 function t16() {
@@ -1106,20 +1064,14 @@ function t16() {
   this.exit = "west"; // north, east, or west **Note no south exits allowed**
   this.orientation = "2x1"; // 1x1, 1x2, or 2x1
   this.half = "bottom"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 function t17() {
   this.entrance = "west"; // south, east, or west *Note no north entrances allowed**
   this.exit = "west"; // north, east, or west **Note no south exits allowed**
   this.orientation = "2x1"; // 1x1, 1x2, or 2x1
   this.half = "top"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => { 
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-  };
+  this.spawnObjects = (r, c) => {};
 }
 // ROOM 13
 function t18() {
@@ -1127,18 +1079,12 @@ function t18() {
   this.exit = "east"; // north, east, or west **Note no south exits allowed**
   this.orientation = "2x1"; // 1x1, 1x2, or 2x1
   this.half = "bottom"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
 function t19() {
   this.entrance = "east"; // south, east, or west *Note no north entrances allowed**
   this.exit = "east"; // north, east, or west **Note no south exits allowed**
   this.orientation = "2x1"; // 1x1, 1x2, or 2x1
   this.half = "top"; // undefined, left, right, top, or bottom
-  this.spawnObjects = (r, c) => {
-    // Room position is calculated based off of relative row and column plus some other offsets
-    var roomPos = vec(SETTINGS.BASE_OFFSET_X - unit * 10 + c * 120, SETTINGS.BASE_OFFSET_Y + unit * 9 + r * -120);
-   };
+  this.spawnObjects = (r, c) => {};
 }
